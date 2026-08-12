@@ -1,24 +1,27 @@
-"""Reusable tabular dataset helpers."""
-
 from pathlib import Path
 
-import pandas as pd
+SUPPORTED_IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
+SUPPORTED_VIDEO_SUFFIXES = {".avi", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".webm"}
 
 
-def load_tabular_dataset(path: str | Path) -> pd.DataFrame:
-    """Load a CSV dataset and provide a useful error when it is absent."""
-    dataset_path = Path(path)
-    if not dataset_path.exists():
-        raise FileNotFoundError(
-            f"Dataset not found at {dataset_path}. Add it there or override the Hydra data config."
-        )
-    return pd.read_csv(dataset_path)
+def discover_media(source: str | Path) -> list[Path]:
+    source_path = Path(source)
+    if not source_path.exists():
+        raise FileNotFoundError(f"Data source does not exist: {source_path}")
+    candidates = [source_path] if source_path.is_file() else source_path.rglob("*")
+    media = sorted(
+        path
+        for path in candidates
+        if path.suffix.lower() in SUPPORTED_IMAGE_SUFFIXES | SUPPORTED_VIDEO_SUFFIXES
+    )
+    if not media:
+        raise ValueError(f"No supported images or videos found in: {source_path}")
+    return media
 
 
-def split_features_and_target(
-    frame: pd.DataFrame, target_column: str
-) -> tuple[pd.DataFrame, pd.Series]:
-    """Separate a dataframe into features and its configured target."""
-    if target_column not in frame.columns:
-        raise ValueError(f"Target column '{target_column}' is missing from the dataset.")
-    return frame.drop(columns=[target_column]), frame[target_column]
+def is_image(path: str | Path) -> bool:
+    return Path(path).suffix.lower() in SUPPORTED_IMAGE_SUFFIXES
+
+
+def is_video(path: str | Path) -> bool:
+    return Path(path).suffix.lower() in SUPPORTED_VIDEO_SUFFIXES
